@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinCamp — Scoreboard 8 บ้าน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="coins" id="coins"></div>
+<div class="wrap">
+  <header class="hero">
+    <h1>Financial Literacy Camp</h1>
+  </header>
+
+  <section class="chart" id="chart"></section>
+
+  <div class="adminlink"><a href="/admin.html">สำหรับแอดมิน</a></div>
+</div>
+
+<script>
+const fmt = n => Math.round(n).toLocaleString("th-TH");
+
+// floating currency symbols background
+const symbols = ["$", "€", "¥", "£", "元", "₩", "Rp", "₿"];
+const coinsEl = document.getElementById("coins");
+for (let i = 0; i < 22; i++) {
+  const s = document.createElement("span");
+  s.className = "coin";
+  s.textContent = symbols[i % symbols.length];
+  s.style.left = (Math.random() * 100) + "vw";
+  s.style.fontSize = (18 + Math.random() * 26) + "px";
+  s.style.animationDuration = (12 + Math.random() * 18) + "s";
+  s.style.animationDelay = (-Math.random() * 20) + "s";
+  coinsEl.appendChild(s);
+}
+
+const chart = document.getElementById("chart");
+const shown = {};   // houseId -> displayed balance
+let firstLoad = true;
+
+function buildCol(h) {
+  const col = document.createElement("div");
+  col.className = "col";
+  col.dataset.id = h.id;
+  col.innerHTML = `
+    <div class="val"><span class="num">0</span><span class="unit">แต้ม</span></div>
+    <div class="barwrap">
+      <div class="vbar" style="--c:${h.color}"><span class="frame"></span><span class="rk"></span></div>
+    </div>
+    <div class="chip" style="--c:${h.color}">${h.symbol}</div>
+    <div class="nm">${h.name.replace("บ้าน", "")}</div>`;
+  return col;
+}
+
+function countUp(el, from, to, dur = 900) {
+  const start = performance.now();
+  function tick() {
+    const t = Math.min(1, (performance.now() - start) / dur);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = fmt(from + (to - from) * eased);
+    if (t < 1) setTimeout(tick, 16);
+  }
+  tick();
+}
+
+async function load() {
+  const res = await fetch("/api/houses");
+  const { houses } = await res.json();
+  const sorted = [...houses].sort((a, b) => b.balance - a.balance);
+  const max = Math.max(1, sorted[0].balance);
+
+  // FLIP: record old x positions
+  const oldPos = {};
+  chart.querySelectorAll(".col").forEach(c => { oldPos[c.dataset.id] = c.getBoundingClientRect().left; });
+
+  sorted.forEach((h, i) => {
+    let col = chart.querySelector(`.col[data-id="${h.id}"]`);
+    if (!col) {
+      col = buildCol(h);
+      col.style.animationDelay = (i * 0.09) + "s";
+      chart.appendChild(col);
+    } else {
+      chart.appendChild(col); // reorder left -> right by rank
+    }
+    col.classList.toggle("first", i === 0 && h.balance > 0);
+    col.querySelector(".rk").textContent = i + 1;
+
+    // bar height: min 4% so a zero bar is still visible
+    const pct = Math.max(4, (h.balance / max) * 100);
+    const vbar = col.querySelector(".vbar");
+    setTimeout(() => { vbar.style.height = pct + "%"; }, 60);
+
+    const numEl = col.querySelector(".num");
+    const prev = shown[h.id] ?? 0;
+    if (prev !== h.balance) {
+      countUp(numEl, prev, h.balance);
+      if (!firstLoad) {
+        col.classList.remove("flash");
+        void col.offsetWidth;
+        col.classList.add("flash");
+      }
+      shown[h.id] = h.balance;
+    }
+  });
+
+  // FLIP: animate columns that swapped position
+  if (!firstLoad) {
+    chart.querySelectorAll(".col").forEach(c => {
+      const oldLeft = oldPos[c.dataset.id];
+      if (oldLeft == null) return;
+      const delta = oldLeft - c.getBoundingClientRect().left;
+      if (Math.abs(delta) > 2) {
+        c.animate(
+          [{ transform: `translateX(${delta}px)` }, { transform: "translateX(0)" }],
+          { duration: 650, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
+        );
+      }
+    });
+  }
+  firstLoad = false;
+}
+load();
+
+// realtime via Server-Sent Events (+ slow polling as safety net)
+const es = new EventSource("/api/stream");
+es.onmessage = e => { if (e.data === "update") load(); };
+es.onerror = () => {}; // EventSource auto-reconnects
+setInterval(load, 30000);
+</script>
+</body>
+</html>

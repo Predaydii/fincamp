@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fincamp",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server.js"],
+      "cwd": "C:\\Users\\sunday\\OneDrive\\Desktop\\FinCamp",
+      "port": 3210
+    }
+  ]
+}

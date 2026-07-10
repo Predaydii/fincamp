@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinCamp — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <!-- login -->
+  <div class="login-box" id="loginBox">
+    <h2>เข้าสู่ระบบแอดมิน</h2>
+    <p>กรอกรหัสผ่านเพื่อจัดการเงินของแต่ละบ้าน</p>
+    <input type="password" id="pin" inputmode="numeric" placeholder="รหัสผ่าน" autocomplete="off">
+    <button class="primary" id="loginBtn">เข้าสู่ระบบ</button>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <!-- panel -->
+  <div class="panel" id="panel" style="display:none">
+    <div class="topbar">
+      <a href="/">← กลับหน้า Scoreboard</a>
+      <a href="#" id="logout">ออกจากระบบ</a>
+    </div>
+    <h2>เพิ่มเงินให้บ้าน</h2>
+    <div class="house-pick" id="pick"></div>
+    <input type="number" id="amount" placeholder="จำนวนเงิน (ใส่ติดลบเพื่อหักเงิน)">
+    <div class="quick" id="quick"></div>
+    <button class="primary" id="addBtn">ยืนยันเพิ่มเงิน</button>
+    <div class="msg" id="addMsg"></div>
+
+    <div class="history">
+      <h3>ประวัติล่าสุด</h3>
+      <ul id="historyList"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const fmt = n => n.toLocaleString("th-TH");
+let PIN = sessionStorage.getItem("fincamp_pin") || "";
+let selectedHouse = null;
+
+const $ = id => document.getElementById(id);
+
+async function login(pin) {
+  const res = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pin })
+  });
+  return res.ok;
+}
+
+$("loginBtn").onclick = async () => {
+  const pin = $("pin").value.trim();
+  if (await login(pin)) {
+    PIN = pin;
+    sessionStorage.setItem("fincamp_pin", pin);
+    showPanel();
+  } else {
+    $("loginMsg").textContent = "รหัสผ่านไม่ถูกต้อง";
+    $("loginMsg").className = "msg err";
+  }
+};
+$("pin").addEventListener("keydown", e => { if (e.key === "Enter") $("loginBtn").click(); });
+
+$("logout").onclick = e => {
+  e.preventDefault();
+  sessionStorage.removeItem("fincamp_pin");
+  location.reload();
+};
+
+async function showPanel() {
+  $("loginBox").style.display = "none";
+  $("panel").style.display = "block";
+  await refresh();
+}
+
+async function refresh() {
+  const res = await fetch("/api/houses");
+  const { houses, history } = await res.json();
+
+  $("pick").innerHTML = houses.map(h => `
+    <div class="opt ${selectedHouse === h.id ? "sel" : ""}" data-id="${h.id}">
+      <div class="s" style="color:${h.color}">${h.symbol}</div>
+      <div class="n">${h.name}</div>
+      <div class="b">${fmt(h.balance)}</div>
+    </div>`).join("");
+
+  document.querySelectorAll(".opt").forEach(el => {
+    el.onclick = () => {
+      selectedHouse = el.dataset.id;
+      document.querySelectorAll(".opt").forEach(o => o.classList.toggle("sel", o.dataset.id === selectedHouse));
+    };
+  });
+
+  $("historyList").innerHTML = history.map(x => {
+    const t = new Date(x.time).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" });
+    const cls = x.amount >= 0 ? "plus" : "minus";
+    const sign = x.amount >= 0 ? "+" : "";
+    return `<li><span>${x.houseName}</span><span class="${cls}">${sign}${fmt(x.amount)}</span><span style="color:var(--muted)">${t}</span></li>`;
+  }).join("") || "<li style='color:var(--muted)'>ยังไม่มีรายการ</li>";
+}
+
+// quick amount buttons
+[100, 200, 300, 500, 1000].forEach(v => {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = "+" + fmt(v);
+  b.onclick = () => { $("amount").value = v; };
+  $("quick").appendChild(b);
+});
+
+$("addBtn").onclick = async () => {
+  const msg = $("addMsg");
+  if (!selectedHouse) { msg.textContent = "กรุณาเลือกบ้านก่อน"; msg.className = "msg err"; return; }
+  const amount = Number($("amount").value);
+  if (!amount) { msg.textContent = "กรุณาใส่จำนวนเงิน"; msg.className = "msg err"; return; }
+
+  const res = await fetch("/api/add", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pin: PIN, houseId: selectedHouse, amount })
+  });
+  const data = await res.json();
+  if (data.ok) {
+    msg.textContent = `${amount > 0 ? "เพิ่ม" : "หัก"}เงิน ${data.house.name} สำเร็จ! ยอดใหม่ ${fmt(data.house.balance)}`;
+    msg.className = "msg ok";
+    $("amount").value = "";
+    refresh();
+  } else {
+    msg.textContent = data.error || "เกิดข้อผิดพลาด";
+    msg.className = "msg err";
+  }
+};
+
+// auto-login if pin saved
+if (PIN) login(PIN).then(ok => { if (ok) showPanel(); else sessionStorage.removeItem("fincamp_pin"); });
+</script>
+</body>
+</html>
