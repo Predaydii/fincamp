@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FinCamp — Scoreboard 8 บ้าน</title>
+<title>Financial Literacy Camp - ธนาคารเงินในอากาศ</title>
+<meta name="description" content="ระบบธนาคารดิจิทัล ค่ายคณิตศาสตร์การเงิน Financial Literacy Camp &quot;เงินอยู่ในอากาศ&quot;">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,7 +14,8 @@
 <div class="coins" id="coins"></div>
 <div class="wrap">
   <header class="hero">
-    <h1>Financial Literacy Camp</h1>
+    <h1>ธนาคารเงินในอากาศ</h1>
+    <p>Financial Literacy Camp</p>
   </header>
 
   <section class="chart" id="chart"></section>
@@ -47,7 +49,7 @@ function buildCol(h) {
   col.className = "col";
   col.dataset.id = h.id;
   col.innerHTML = `
-    <div class="val"><span class="num">0</span><span class="unit">แต้ม</span></div>
+    <div class="val"><span class="num">0</span><span class="unit">รูปู</span></div>
     <div class="barwrap">
       <div class="vbar" style="--c:${h.color}"><span class="frame"></span><span class="rk"></span></div>
     </div>
