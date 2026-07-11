@@ -29,6 +29,11 @@
       <a href="#" id="logout">ออกจากระบบ</a>
     </div>
     <h2>เพิ่มเงินให้บ้าน</h2>
+    <p style="text-align:center;color:var(--muted);font-size:0.85rem;margin-bottom:4px">กดเลือกได้หลายบ้านพร้อมกัน</p>
+    <div class="quick" style="margin-bottom:12px">
+      <button type="button" id="selAll">เลือกทั้งหมด</button>
+      <button type="button" id="selNone">ล้างที่เลือก</button>
+    </div>
     <div class="house-pick" id="pick"></div>
     <input type="number" id="amount" placeholder="จำนวนเงิน (ใส่ติดลบเพื่อหักเงิน)">
     <div class="quick" id="quick"></div>
@@ -45,7 +50,7 @@
 <script>
 const fmt = n => n.toLocaleString("th-TH");
 let PIN = sessionStorage.getItem("fincamp_pin") || "";
-let selectedHouse = null;
+const selectedHouses = new Set();
 
 const $ = id => document.getElementById(id);
 
@@ -88,7 +93,7 @@ async function refresh() {
   const { houses, history } = await res.json();
 
   $("pick").innerHTML = houses.map(h => `
-    <div class="opt ${selectedHouse === h.id ? "sel" : ""}" data-id="${h.id}">
+    <div class="opt ${selectedHouses.has(h.id) ? "sel" : ""}" data-id="${h.id}">
       <div class="s" style="color:${h.color}">${h.symbol}</div>
       <div class="n">${h.name}</div>
       <div class="b">${fmt(h.balance)}</div>
@@ -96,8 +101,10 @@ async function refresh() {
 
   document.querySelectorAll(".opt").forEach(el => {
     el.onclick = () => {
-      selectedHouse = el.dataset.id;
-      document.querySelectorAll(".opt").forEach(o => o.classList.toggle("sel", o.dataset.id === selectedHouse));
+      const id = el.dataset.id;
+      if (selectedHouses.has(id)) selectedHouses.delete(id);
+      else selectedHouses.add(id);
+      el.classList.toggle("sel", selectedHouses.has(id));
     };
   });
 
@@ -118,20 +125,29 @@ async function refresh() {
   $("quick").appendChild(b);
 });
 
+$("selAll").onclick = () => {
+  document.querySelectorAll(".opt").forEach(o => { selectedHouses.add(o.dataset.id); o.classList.add("sel"); });
+};
+$("selNone").onclick = () => {
+  selectedHouses.clear();
+  document.querySelectorAll(".opt").forEach(o => o.classList.remove("sel"));
+};
+
 $("addBtn").onclick = async () => {
   const msg = $("addMsg");
-  if (!selectedHouse) { msg.textContent = "กรุณาเลือกบ้านก่อน"; msg.className = "msg err"; return; }
+  if (selectedHouses.size === 0) { msg.textContent = "กรุณาเลือกบ้านก่อน"; msg.className = "msg err"; return; }
   const amount = Number($("amount").value);
   if (!amount) { msg.textContent = "กรุณาใส่จำนวนเงิน"; msg.className = "msg err"; return; }
 
   const res = await fetch("/api/add", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pin: PIN, houseId: selectedHouse, amount })
+    body: JSON.stringify({ pin: PIN, houseIds: [...selectedHouses], amount })
   });
   const data = await res.json();
   if (data.ok) {
-    msg.textContent = `${amount > 0 ? "เพิ่ม" : "หัก"}เงิน ${data.house.name} สำเร็จ! ยอดใหม่ ${fmt(data.house.balance)}`;
+    const names = data.houses.map(h => h.name.replace("บ้าน", "")).join(", ");
+    msg.textContent = `${amount > 0 ? "เพิ่ม" : "หัก"}เงิน ${data.houses.length} บ้าน (${names}) สำเร็จ!`;
     msg.className = "msg ok";
     $("amount").value = "";
     refresh();

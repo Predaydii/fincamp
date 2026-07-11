@@ -161,17 +161,24 @@ app.post("/api/login", (req, res) => {
 });
 
 app.post("/api/add", async (req, res) => {
-  const { pin, houseId, amount } = req.body || {};
+  const { pin, houseId, houseIds, amount } = req.body || {};
   if (pin !== ADMIN_PIN) return res.status(401).json({ ok: false, error: "ไม่ได้รับอนุญาต" });
   const amt = Number(amount);
   if (!Number.isFinite(amt) || amt === 0) {
     return res.status(400).json({ ok: false, error: "จำนวนเงินไม่ถูกต้อง" });
   }
+  const ids = Array.isArray(houseIds) ? houseIds : [houseId];
+  if (ids.length === 0 || !ids.every(id => HOUSE_META[id])) {
+    return res.status(404).json({ ok: false, error: "ไม่พบบ้านนี้" });
+  }
   try {
-    const house = await store.addMoney(houseId, amt);
-    if (!house) return res.status(404).json({ ok: false, error: "ไม่พบบ้านนี้" });
+    const houses = [];
+    for (const id of ids) {
+      const house = await store.addMoney(id, amt);
+      if (house) houses.push(withMeta(house));
+    }
     broadcast();
-    res.json({ ok: true, house: withMeta(house) });
+    res.json({ ok: true, houses, house: houses[0] });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: "เกิดข้อผิดพลาดฝั่งเซิร์ฟเวอร์" });
