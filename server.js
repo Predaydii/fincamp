@@ -162,7 +162,7 @@ app.post("/api/login", (req, res) => {
 });
 
 app.post("/api/add", async (req, res) => {
-  const { pin, houseId, houseIds, amount } = req.body || {};
+  const { pin, houseId, houseIds, amount, mode } = req.body || {};
   if (pin !== ADMIN_PIN) return res.status(401).json({ ok: false, error: "ไม่ได้รับอนุญาต" });
   const amt = Number(amount);
   if (!Number.isFinite(amt) || amt === 0) {
@@ -173,17 +173,37 @@ app.post("/api/add", async (req, res) => {
     return res.status(404).json({ ok: false, error: "ไม่พบบ้านนี้" });
   }
   try {
-    const houses = [];
-    for (const id of ids) {
-      const house = await store.addMoney(id, amt);
-      if (house) houses.push(withMeta(house));
+    // percent mode: each house's delta is computed from its own current balance
+    let deltas = {};
+    if (mode === "percent") {
+      const current = await store.getHouses();
+      for (const id of ids) {
+        const bal = Number(current.find(h => h.id === id)?.balance || 0);
+        deltas[id] = Math.round(bal * amt / 100);
+      }
+    } else {
+      for (const id of ids) deltas[id] = amt;
     }
-    broadcast({
-      type: "update",
-      amount: amt,
-      changes: houses.map(h => ({ name: h.name, symbol: h.symbol, color: h.color }))
-    });
-    res.json({ ok: true, houses, house: houses[0] });
+
+    const houses = [];
+    const changes = [];
+    for (const id of ids) {
+      if (deltas[id] === 0) { // e.g. 10% of 0 — nothing to apply
+        const meta = HOUSE_META[id];
+        houses.push({ ...meta });
+        continue;
+      }
+      const house = await store.addMoney(id, deltas[id]);
+      if (house) {
+        const h = withMeta(house);
+        houses.push(h);
+        changes.push({ name: h.name, symbol: h.symbol, color: h.color, amount: deltas[id] });
+      }
+    }
+    if (changes.length) {
+      broadcast({ type: "update", amount: amt, mode: mode === "percent" ? "percent" : "flat", changes });
+    }
+    res.json({ ok: true, houses, house: houses[0], deltas });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: "เกิดข้อผิดพลาดฝั่งเซิร์ฟเวอร์" });

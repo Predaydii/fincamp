@@ -35,6 +35,10 @@
       <button type="button" id="selNone">ล้างที่เลือก</button>
     </div>
     <div class="house-pick" id="pick"></div>
+    <div class="quick" style="margin:0 0 10px">
+      <button type="button" id="modeFlat" class="mode-btn active">รูปู</button>
+      <button type="button" id="modePct" class="mode-btn">%</button>
+    </div>
     <input type="number" id="amount" placeholder="จำนวนเงิน (ใส่ติดลบเพื่อหักเงิน)">
     <div class="quick" id="quick"></div>
     <button class="primary" id="addBtn">ยืนยันเพิ่มเงิน</button>
@@ -116,14 +120,31 @@ async function refresh() {
   }).join("") || "<li style='color:var(--muted)'>ยังไม่มีรายการ</li>";
 }
 
-// quick amount buttons
-[100, 200, 300, 500, 1000].forEach(v => {
-  const b = document.createElement("button");
-  b.type = "button";
-  b.textContent = "+" + fmt(v);
-  b.onclick = () => { $("amount").value = v; };
-  $("quick").appendChild(b);
-});
+// mode toggle: flat amount vs percent of each house's balance
+let mode = "flat";
+const QUICK = { flat: [100, 200, 300, 500, 1000], percent: [5, 10, 20, 25, 50] };
+function renderQuick() {
+  $("quick").innerHTML = "";
+  QUICK[mode].forEach(v => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = mode === "flat" ? "+" + fmt(v) : "-" + v + "%";
+    b.onclick = () => { $("amount").value = mode === "flat" ? v : -v; };
+    $("quick").appendChild(b);
+  });
+}
+function setMode(m) {
+  mode = m;
+  $("modeFlat").classList.toggle("active", m === "flat");
+  $("modePct").classList.toggle("active", m === "percent");
+  $("amount").placeholder = m === "flat"
+    ? "จำนวนเงิน (ใส่ติดลบเพื่อหักเงิน)"
+    : "เปอร์เซ็นต์ เช่น -10 = หัก 10%, 10 = เพิ่ม 10%";
+  renderQuick();
+}
+$("modeFlat").onclick = () => setMode("flat");
+$("modePct").onclick = () => setMode("percent");
+renderQuick();
 
 $("selAll").onclick = () => {
   document.querySelectorAll(".opt").forEach(o => { selectedHouses.add(o.dataset.id); o.classList.add("sel"); });
@@ -142,12 +163,13 @@ $("addBtn").onclick = async () => {
   const res = await fetch("/api/add", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pin: PIN, houseIds: [...selectedHouses], amount })
+    body: JSON.stringify({ pin: PIN, houseIds: [...selectedHouses], amount, mode })
   });
   const data = await res.json();
   if (data.ok) {
     const names = data.houses.map(h => h.name.replace("บ้าน", "")).join(", ");
-    msg.textContent = `${amount > 0 ? "เพิ่ม" : "หัก"}เงิน ${data.houses.length} บ้าน (${names}) สำเร็จ!`;
+    const unit = mode === "percent" ? Math.abs(amount) + "%" : "";
+    msg.textContent = `${amount > 0 ? "เพิ่ม" : "หัก"}เงิน${unit ? " " + unit : ""} ${data.houses.length} บ้าน (${names}) สำเร็จ!`;
     msg.className = "msg ok";
     $("amount").value = "";
     selectedHouses.clear();

@@ -312,6 +312,12 @@ button.primary:active { transform: scale(0.98); }
   cursor: pointer; background: rgba(255,255,255,0.06);
 }
 .quick button:hover { border-color: var(--accent); }
+.mode-btn.active {
+  border-color: var(--accent);
+  background: rgba(77, 181, 255, 0.2);
+  color: var(--accent);
+  font-weight: 700;
+}
 
 .history { margin-top: 26px; }
 .history h3 { font-size: 0.95rem; color: var(--muted); margin-bottom: 8px; }

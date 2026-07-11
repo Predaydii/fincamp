@@ -221,7 +221,7 @@ es.onmessage = e => {
     const msg = JSON.parse(e.data);
     if (msg.type === "update") {
       load();
-      (msg.changes || []).forEach((c, i) => setTimeout(() => showToast(c, msg.amount), i * 250));
+      (msg.changes || []).forEach((c, i) => setTimeout(() => showToast(c, c.amount ?? msg.amount), i * 250));
       if (msg.changes && msg.changes.length) (msg.amount > 0 ? playGain : playLoss)();
     }
   } catch { load(); }
