@@ -150,6 +150,7 @@ $("addBtn").onclick = async () => {
     msg.textContent = `${amount > 0 ? "เพิ่ม" : "หัก"}เงิน ${data.houses.length} บ้าน (${names}) สำเร็จ!`;
     msg.className = "msg ok";
     $("amount").value = "";
+    selectedHouses.clear();
     refresh();
   } else {
     msg.textContent = data.error || "เกิดข้อผิดพลาด";

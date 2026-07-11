@@ -73,7 +73,7 @@ if (process.env.DATABASE_URL) {
     },
     async addMoney(houseId, amount) {
       const { rows } = await pool.query(
-        "UPDATE houses SET balance = GREATEST(0, balance + $2) WHERE id = $1 RETURNING id, name, symbol, color, balance::int",
+        "UPDATE houses SET balance = balance + $2 WHERE id = $1 RETURNING id, name, symbol, color, balance::int",
         [houseId, amount]
       );
       if (!rows[0]) return null;
@@ -108,7 +108,7 @@ if (process.env.DATABASE_URL) {
       const data = loadData();
       const house = data.houses.find(h => h.id === houseId);
       if (!house) return null;
-      house.balance = Math.max(0, house.balance + amount);
+      house.balance += amount;
       data.history.push({
         houseId: house.id,
         houseName: house.name,

@@ -98,6 +98,7 @@ async function load() {
     setTimeout(() => { vbar.style.height = pct + "%"; }, 60);
 
     const numEl = col.querySelector(".num");
+    numEl.classList.toggle("neg", h.balance < 0);
     const prev = shown[h.id] ?? 0;
     if (prev !== h.balance) {
       countUp(numEl, prev, h.balance);

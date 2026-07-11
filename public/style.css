@@ -91,6 +91,7 @@ header.hero { text-align: center; padding: 24px 8px 8px; }
   font-variant-numeric: tabular-nums;
 }
 .col .unit { display: block; font-size: 0.65rem; color: var(--muted); }
+.col .num.neg { color: #ff8f8f; text-shadow: 0 0 12px rgba(255, 143, 143, 0.4); }
 
 .col .barwrap {
   flex: 1;
