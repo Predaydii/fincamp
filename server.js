@@ -7,15 +7,21 @@ const PORT = process.env.PORT || 3210;
 const ADMIN_PIN = process.env.ADMIN_PIN || "129921";
 
 const DEFAULT_HOUSES = [
-  { id: "dollar",  name: "บ้านดอลลาร์",  symbol: "$",  color: "#22c55e", balance: 0 },
-  { id: "euro",    name: "บ้านยูโร",     symbol: "€",  color: "#3b82f6", balance: 0 },
-  { id: "yen",     name: "บ้านเยน",      symbol: "¥",  color: "#ef4444", balance: 0 },
-  { id: "pound",   name: "บ้านปอนด์",    symbol: "£",  color: "#a855f7", balance: 0 },
+  { id: "dollar",  name: "บ้านดอลลาร์",  symbol: "$",  color: "#ef4444", balance: 0 },
+  { id: "euro",    name: "บ้านยูโร",     symbol: "€",  color: "#f97316", balance: 0 },
+  { id: "yen",     name: "บ้านเยน",      symbol: "¥",  color: "#facc15", balance: 0 },
+  { id: "pound",   name: "บ้านปอนด์",    symbol: "£",  color: "#22c55e", balance: 0 },
   { id: "yuan",    name: "บ้านหยวน",     symbol: "元", color: "#f59e0b", balance: 0 },
-  { id: "won",     name: "บ้านวอน",      symbol: "₩",  color: "#06b6d4", balance: 0 },
+  { id: "won",     name: "บ้านวอน",      symbol: "₩",  color: "#38bdf8", balance: 0 },
   { id: "rupiah",  name: "บ้านรูเปียห์", symbol: "Rp", color: "#ec4899", balance: 0 },
-  { id: "bitcoin", name: "บ้านบิตคอยน์", symbol: "₿",  color: "#f97316", balance: 0 }
+  { id: "bitcoin", name: "บ้านบิตคอยน์", symbol: "₿",  color: "#a855f7", balance: 0 }
 ];
+// cosmetic fields always come from code, so color changes apply to existing data
+const HOUSE_META = Object.fromEntries(DEFAULT_HOUSES.map(h => [h.id, h]));
+function withMeta(h) {
+  const m = HOUSE_META[h.id];
+  return m ? { ...h, name: m.name, symbol: m.symbol, color: m.color } : h;
+}
 
 // ---------- storage: Postgres when DATABASE_URL is set, JSON file otherwise ----------
 let store;
@@ -142,7 +148,7 @@ setInterval(() => {
 app.get("/api/houses", async (req, res) => {
   try {
     const [houses, history] = await Promise.all([store.getHouses(), store.getHistory()]);
-    res.json({ houses, history });
+    res.json({ houses: houses.map(withMeta), history });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: "เกิดข้อผิดพลาดฝั่งเซิร์ฟเวอร์" });
@@ -165,7 +171,7 @@ app.post("/api/add", async (req, res) => {
     const house = await store.addMoney(houseId, amt);
     if (!house) return res.status(404).json({ ok: false, error: "ไม่พบบ้านนี้" });
     broadcast();
-    res.json({ ok: true, house });
+    res.json({ ok: true, house: withMeta(house) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: "เกิดข้อผิดพลาดฝั่งเซิร์ฟเวอร์" });
