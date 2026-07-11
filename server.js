@@ -138,8 +138,9 @@ app.get("/api/stream", (req, res) => {
   sseClients.add(res);
   req.on("close", () => sseClients.delete(res));
 });
-function broadcast() {
-  for (const client of sseClients) client.write("data: update\n\n");
+function broadcast(payload) {
+  const data = payload ? JSON.stringify(payload) : "update";
+  for (const client of sseClients) client.write(`data: ${data}\n\n`);
 }
 setInterval(() => {
   for (const client of sseClients) client.write(": ping\n\n");
@@ -177,7 +178,11 @@ app.post("/api/add", async (req, res) => {
       const house = await store.addMoney(id, amt);
       if (house) houses.push(withMeta(house));
     }
-    broadcast();
+    broadcast({
+      type: "update",
+      amount: amt,
+      changes: houses.map(h => ({ name: h.name, symbol: h.symbol, color: h.color }))
+    });
     res.json({ ok: true, houses, house: houses[0] });
   } catch (err) {
     console.error(err);

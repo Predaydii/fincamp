@@ -191,6 +191,69 @@ header.hero { text-align: center; padding: 24px 8px 8px; }
   100% { filter: brightness(1); }
 }
 
+/* ===== toast notifications ===== */
+.toasts {
+  position: fixed;
+  top: 16px; right: 16px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(320px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px 14px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--c) 55%, transparent);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--c) 22%, rgba(7, 22, 48, 0.92)),
+    rgba(7, 22, 48, 0.92));
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 24px color-mix(in srgb, var(--c) 30%, transparent);
+  overflow: hidden;
+  animation: toastIn 0.45s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+@keyframes toastIn {
+  from { transform: translateX(120%) scale(0.9); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+.toast.out { animation: toastOut 0.45s ease both; }
+@keyframes toastOut {
+  to { transform: translateX(120%); opacity: 0; }
+}
+.toast .t-chip {
+  flex: none;
+  width: 42px; height: 42px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px;
+  font-size: 1.2rem; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--c), color-mix(in srgb, var(--c) 55%, #04162e));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.toast .t-name { font-weight: 600; font-size: 0.95rem; }
+.toast .t-amt { font-size: 0.9rem; font-weight: 700; }
+.toast.gain .t-amt { color: #7dffb0; text-shadow: 0 0 12px rgba(125, 255, 176, 0.5); }
+.toast.loss .t-amt { color: #ff8f8f; text-shadow: 0 0 12px rgba(255, 143, 143, 0.5); }
+.toast .t-timer {
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 3px; width: 100%;
+  background: linear-gradient(90deg, var(--c), color-mix(in srgb, var(--c) 40%, #ffffff));
+  transform-origin: left;
+  animation: timerRun 4.5s linear forwards;
+}
+@keyframes timerRun { to { transform: scaleX(0); } }
+
+@media (max-width: 600px) {
+  .toasts { top: 10px; right: 10px; }
+  .toast { padding: 10px 12px 12px; }
+}
+
 .adminlink { text-align: center; margin-top: 40px; }
 .adminlink a { color: var(--muted); font-size: 0.85rem; text-decoration: none; border-bottom: 1px dashed var(--muted); }
 .adminlink a:hover { color: var(--accent); }

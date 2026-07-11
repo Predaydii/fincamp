@@ -12,6 +12,7 @@
 </head>
 <body>
 <div class="coins" id="coins"></div>
+<div class="toasts" id="toasts"></div>
 <div class="wrap">
   <header class="hero">
     <h1>ธนาคารเงินในอากาศ</h1>
@@ -127,9 +128,40 @@ async function load() {
 }
 load();
 
+// toast notifications
+const toasts = document.getElementById("toasts");
+function showToast(change, amount) {
+  const t = document.createElement("div");
+  t.className = "toast " + (amount > 0 ? "gain" : "loss");
+  t.style.setProperty("--c", change.color);
+  t.innerHTML = `
+    <div class="t-chip">${change.symbol}</div>
+    <div class="t-body">
+      <div class="t-name">${change.name}</div>
+      <div class="t-amt">${amount > 0 ? "ได้รับ +" : "เสีย −"}${fmt(Math.abs(amount))} รูปู</div>
+    </div>
+    <i class="t-timer"></i>`;
+  toasts.prepend(t);
+  while (toasts.children.length > 5) toasts.lastChild.remove();
+  setTimeout(() => {
+    t.classList.add("out");
+    setTimeout(() => t.remove(), 500);
+  }, 4500);
+}
+
 // realtime via Server-Sent Events (+ slow polling as safety net)
 const es = new EventSource("/api/stream");
-es.onmessage = e => { if (e.data === "update") load(); };
+es.onmessage = e => {
+  if (e.data === "connected") return;
+  if (e.data === "update") { load(); return; }
+  try {
+    const msg = JSON.parse(e.data);
+    if (msg.type === "update") {
+      load();
+      (msg.changes || []).forEach((c, i) => setTimeout(() => showToast(c, msg.amount), i * 250));
+    }
+  } catch { load(); }
+};
 es.onerror = () => {}; // EventSource auto-reconnects
 setInterval(load, 30000);
 </script>
