@@ -42,6 +42,23 @@ for (let i = 0; i < 22; i++) {
 }
 
 const chart = document.getElementById("chart");
+
+// shrink the number to fit its column so long amounts never widen the column;
+// if it would get too tiny, switch to compact Thai notation (e.g. 2 ล้าน)
+const fmtCompact = new Intl.NumberFormat("th-TH", { notation: "compact", compactDisplay: "long", maximumFractionDigits: 1 });
+function fitVal(col) {
+  const val = col.querySelector(".val");
+  const num = col.querySelector(".num");
+  val.style.transform = "";
+  let scale = Math.min(1, col.clientWidth / (val.scrollWidth || 1));
+  if (scale < 0.65) {
+    const bal = Number(col.dataset.bal || 0);
+    num.textContent = fmtCompact.format(bal);
+    num.title = fmt(bal);
+    scale = Math.min(1, col.clientWidth / (val.scrollWidth || 1));
+  }
+  if (scale < 1) val.style.transform = `scale(${scale})`;
+}
 const shown = {};   // houseId -> displayed balance
 let firstLoad = true;
 
@@ -89,6 +106,7 @@ async function load() {
     } else {
       chart.appendChild(col); // reorder left -> right by rank
     }
+    col.dataset.bal = h.balance;
     col.classList.toggle("first", i === 0 && h.balance > 0);
     col.querySelector(".rk").textContent = i + 1;
 
@@ -108,7 +126,9 @@ async function load() {
         col.classList.add("flash");
       }
       shown[h.id] = h.balance;
+      setTimeout(() => fitVal(col), 950); // after countUp settles
     }
+    fitVal(col);
   });
 
   // FLIP: animate columns that swapped position
@@ -128,6 +148,48 @@ async function load() {
   firstLoad = false;
 }
 load();
+
+// sound effects (Web Audio, synthesized — no files needed)
+let audioCtx = null;
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+// browsers require a user gesture before audio can start
+["click", "touchstart", "keydown"].forEach(ev =>
+  document.addEventListener(ev, () => getCtx(), { once: true, passive: true })
+);
+function tone(ctx, freq, start, dur, type = "sine", vol = 0.12) {
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, ctx.currentTime + start);
+  g.gain.setValueAtTime(0, ctx.currentTime + start);
+  g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+  o.connect(g).connect(ctx.destination);
+  o.start(ctx.currentTime + start);
+  o.stop(ctx.currentTime + start + dur + 0.05);
+}
+function playGain() {
+  try {
+    const ctx = getCtx();
+    // sparkling coin: quick ascending chime
+    tone(ctx, 1318.5, 0,    0.12, "triangle", 0.14); // E6
+    tone(ctx, 1568.0, 0.07, 0.12, "triangle", 0.14); // G6
+    tone(ctx, 2093.0, 0.14, 0.25, "triangle", 0.16); // C7
+  } catch {}
+}
+function playLoss() {
+  try {
+    const ctx = getCtx();
+    // descending "wah": money lost
+    tone(ctx, 392.0, 0,    0.18, "sawtooth", 0.07); // G4
+    tone(ctx, 311.1, 0.15, 0.18, "sawtooth", 0.07); // Eb4
+    tone(ctx, 233.1, 0.30, 0.35, "sawtooth", 0.08); // Bb3
+  } catch {}
+}
 
 // toast notifications
 const toasts = document.getElementById("toasts");
@@ -160,6 +222,7 @@ es.onmessage = e => {
     if (msg.type === "update") {
       load();
       (msg.changes || []).forEach((c, i) => setTimeout(() => showToast(c, msg.amount), i * 250));
+      if (msg.changes && msg.changes.length) (msg.amount > 0 ? playGain : playLoss)();
     }
   } catch { load(); }
 };
